@@ -30,9 +30,9 @@ The system supports workloads including **PDF, image, audio, and video files**.
 
 ![System Monitoring Dashboard](screenshots/dashboard.png)
 
-### Real-Time Task Execution
+### Workload Execution and Worker Monitoring
 
-![Real-Time Task Execution](screenshots/task-execution.png)
+![Workload Execution and Worker Monitoring](screenshots/task-execution.png)
 
 ---
 
