@@ -24,6 +24,17 @@ The **Intelligent Task Scheduling System with Real-Time Monitoring** addresses t
 The system supports workloads including **PDF, image, audio, and video files**.
 
 ---
+## Dashboard Preview
+
+### System Monitoring Dashboard
+
+![System Monitoring Dashboard](screenshots/dashboard.png)
+
+### Real-Time Task Execution
+
+![Real-Time Task Execution](screenshots/task-execution.png)
+
+---
 
 ## Key Features
 
