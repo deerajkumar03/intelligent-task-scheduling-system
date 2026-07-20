@@ -1,1452 +1,647 @@
-\# Intelligent Task Scheduling System with Real-Time Monitoring
+# Intelligent Task Scheduling System with Real-Time Monitoring
 
+A distributed task orchestration system designed to schedule heterogeneous workloads across specialized workers while providing real-time visibility into task execution, worker health, queue activity, resource utilization, and scheduling decisions.
 
+The system uses a metric-based scheduling strategy to select suitable workers based on specialization, current load, health status, execution latency, and task priority. It also supports chunk-based parallel processing, failure recovery, retry mechanisms, and dynamic worker scaling.
 
-A distributed task orchestration and scheduling system designed to intelligently classify heterogeneous workloads, distribute tasks across specialized workers, monitor execution in real time, handle worker failures, and dynamically scale worker capacity based on workload demand.
+---
 
+## Overview
 
+Modern task-processing systems often need to handle workloads with different computational and I/O characteristics. Assigning every task to workers without considering their specialization or runtime condition can lead to inefficient resource utilization and poor execution performance.
 
-The system provides a real-time monitoring dashboard that visualizes task execution, worker health, queue activity, system resources, scheduling decisions, telemetry events, and execution statistics.
+The **Intelligent Task Scheduling System with Real-Time Monitoring** addresses this problem through a distributed orchestration architecture that:
 
+- Classifies incoming workloads.
+- Routes tasks to specialized CPU or I/O workers.
+- Considers worker load, health, and latency during scheduling.
+- Splits suitable workloads into chunks for parallel execution.
+- Handles worker execution failures through retries and reassignment.
+- Dynamically adds worker capacity when required.
+- Provides real-time monitoring through an interactive dashboard.
 
+The system currently supports workloads including **PDF, image, audio, and video files**.
 
-\---
+---
 
+## Key Features
 
+### Intelligent Metric-Based Scheduling
 
-\## Overview
+The scheduler evaluates available workers before assigning a task.
 
+Worker selection considers:
 
+- Worker specialization
+- Current worker load
+- Worker health status
+- Average execution latency
+- Task priority
+- Runtime performance information
 
-Traditional task-processing systems may assign workloads without considering worker specialization, current load, health, or execution performance.
+Scheduling decisions are exposed through telemetry, making worker selection observable through the monitoring dashboard.
 
+### Specialized Worker Pool
 
+The system separates workers based on workload characteristics.
 
-This project implements an intelligent distributed scheduling approach where incoming workloads are classified and routed to suitable workers based on multiple runtime factors.
+| Worker Type | Typical Workloads |
+| --- | --- |
+| CPU Worker | PDF, Image, Compute-oriented tasks |
+| I/O Worker | Audio, Video, File-intensive tasks |
 
+This allows workloads to be routed to workers better suited to their processing requirements.
 
+### Chunk-Based Parallel Processing
 
-The system supports different workload types such as:
+Large workloads can be divided into smaller chunks and scheduled independently.
 
+Multiple chunks can be distributed across available workers, allowing parallel processing and improved workload distribution.
 
+After all required chunks are processed, the system completes the parent task and cleans temporary chunk data.
 
-\- Text
+### Priority-Aware Scheduling
 
-\- PDF
+Tasks can be submitted with different priority levels:
 
-\- Image
+- Low
+- Normal
+- High
+- Critical
 
-\- Audio
+Priority information is incorporated into the scheduling process and influences task execution decisions.
 
-\- Video
+### Fault Handling and Retry Mechanism
 
+The system includes fault-handling logic for worker execution failures.
 
+When an execution attempt fails:
 
-Large workloads can be divided into smaller chunks and distributed across multiple workers for parallel processing.
+1. The failure is detected.
+2. The failed attempt is recorded.
+3. The task can be reassigned to another suitable worker.
+4. Execution is retried according to the configured retry policy.
+5. The task is marked as permanently failed if the retry limit is exhausted.
 
+This provides resilience against temporary worker failures.
 
+### Dynamic Worker Scaling
 
-The scheduler considers factors such as:
+The system includes a dynamic worker management mechanism for handling increased workload demand.
 
+When configured workload conditions are reached, additional workers can be spawned dynamically. These workers connect to the system, register with the scheduler, and become available for task execution.
 
+When a dynamically created worker remains idle beyond the configured timeout, it is automatically terminated.
 
-\- Worker specialization
+This demonstrates workload-driven worker scaling within the orchestration system.
 
-\- Current worker load
+### Distributed Queue Management
 
-\- Worker health
+The project uses **Redis** and **BullMQ** for asynchronous task queue management.
 
-\- Average execution latency
+The queue infrastructure supports:
 
-\- Task priority
+- Task queuing
+- Asynchronous processing
+- Worker execution
+- Queue event monitoring
+- Failure handling
+- Retry workflows
 
-\- Historical worker performance
+### Real-Time Monitoring and Telemetry
 
+The system uses **Socket.IO** to provide real-time communication between the backend and monitoring dashboard.
 
+The dashboard provides visibility into:
 
-The system also provides real-time monitoring using Socket.IO, allowing the frontend dashboard to reflect task and worker activity as it happens.
+- Task execution progress
+- Worker activity
+- Worker health
+- Worker load
+- CPU utilization
+- Memory utilization
+- Queue activity
+- Scheduling decisions
+- Task completion
+- Failures and retries
+- Cluster activity
+- Runtime telemetry
 
+---
 
-
-\---
-
-
-
-\## Key Features
-
-
-
-\### Intelligent Task Scheduling
-
-
-
-The scheduler evaluates available workers and selects a suitable worker based on runtime scheduling metrics rather than assigning tasks blindly.
-
-
-
-Scheduling decisions consider:
-
-
-
-\- Worker type and specialization
-
-\- Current workload
-
-\- Worker health status
-
-\- Average latency
-
-\- Task priority
-
-\- Historical performance
-
-
-
-Scheduling decisions are also exposed through telemetry so that worker selection can be observed from the monitoring dashboard.
-
-
-
-\### Specialized Worker Pool
-
-
-
-The system maintains specialized worker categories for different workload characteristics.
-
-
-
-\*\*CPU Workers\*\*
-
-
-
-Used primarily for CPU-oriented workloads such as:
-
-
-
-\- PDF processing
-
-\- Image processing
-
-\- Compute-intensive tasks
-
-
-
-\*\*I/O Workers\*\*
-
-
-
-Used primarily for I/O-oriented workloads such as:
-
-
-
-\- Audio processing
-
-\- Video processing
-
-\- File-intensive operations
-
-
-
-This separation allows the scheduler to route workloads to workers better suited for their execution characteristics.
-
-
-
-\### Chunk-Based Parallel Processing
-
-
-
-Large workloads can be divided into multiple chunks.
-
-
-
-The chunks are scheduled independently and can be distributed across available workers, enabling parallel execution.
-
-
-
-Typical workflow:
-
-
+## System Architecture
 
 ```text
-
-Large Workload
-
-&#x20;     |
-
-&#x20;     v
-
-Workload Classification
-
-&#x20;     |
-
-&#x20;     v
-
-File Chunking
-
-&#x20;     |
-
-&#x20;     v
-
-Intelligent Scheduler
-
-&#x20;     |
-
-&#x20;     +------> Worker 1
-
-&#x20;     |
-
-&#x20;     +------> Worker 2
-
-&#x20;     |
-
-&#x20;     +------> Worker 3
-
-&#x20;     |
-
-&#x20;     v
-
-Result Aggregation
-
-&#x20;     |
-
-&#x20;     v
-
-Completed Task
-
++---------------------------+
+|      React Frontend       |
+|   Monitoring Dashboard    |
++-------------+-------------+
+              |
+        HTTP / Socket.IO
+              |
+              v
++---------------------------+
+|    Node.js / Express      |
+|      Backend Server       |
++-------------+-------------+
+              |
+     +--------+--------+
+     |                 |
+     v                 v
++------------+   +-------------+
+| Scheduler  |   |  Telemetry  |
++-----+------+   +-------------+
+      |
+      v
++---------------------------+
+|      Redis / BullMQ       |
+|        Task Queue         |
++-------------+-------------+
+              |
+       +------+------+
+       |             |
+       v             v
++-------------+ +-------------+
+| CPU Workers | | I/O Workers |
+| PDF / Image | |Audio / Video|
++------+------+ +------+------+
+       |               |
+       +-------+-------+
+               |
+               v
++---------------------------+
+| Task Completion / Result  |
+| Handling and Aggregation  |
++-------------+-------------+
+              |
+              v
++---------------------------+
+|          MongoDB          |
+|    Tasks and Metrics      |
++---------------------------+
 ```
 
+---
 
-
-Temporary chunks are cleaned after successful workload completion.
-
-
-
-\### Priority-Aware Scheduling
-
-
-
-Tasks can be submitted with different priority levels.
-
-
-
-Supported priorities include:
-
-
-
-\- Low
-
-\- Normal
-
-\- High
-
-\- Critical
-
-
-
-Priority information is incorporated into the scheduling process to influence task execution decisions.
-
-
-
-\### Dynamic Worker Scaling
-
-
-
-The system includes dynamic worker management for handling increased workload demand.
-
-
-
-When workload pressure reaches configured conditions, additional workers can be spawned dynamically.
-
-
-
-Dynamic workers:
-
-
-
-1\. Start when additional processing capacity is required.
-
-2\. Connect to the scheduling system.
-
-3\. Register with the scheduler.
-
-4\. Process assigned workloads.
-
-5\. Remain available while required.
-
-6\. Terminate after an idle timeout when additional capacity is no longer necessary.
-
-
-
-This provides a lightweight demonstration of workload-based horizontal worker scaling.
-
-
-
-\### Fault Handling and Retry Mechanism
-
-
-
-The system includes retry handling for worker execution failures.
-
-
-
-If a worker fails while processing a task:
-
-
-
-1\. The failure is detected.
-
-2\. The task execution attempt is recorded.
-
-3\. The task can be reassigned to another suitable worker.
-
-4\. Execution is retried according to the configured retry policy.
-
-5\. The task is marked as permanently failed if retry limits are exhausted.
-
-
-
-This improves resilience against temporary worker failures.
-
-
-
-\### Distributed Queue Management
-
-
-
-Redis and BullMQ are used for asynchronous task queue management.
-
-
-
-The queue layer supports:
-
-
-
-\- Task queuing
-
-\- Worker-based processing
-
-\- Queue event monitoring
-
-\- Asynchronous execution
-
-\- Failure handling
-
-\- Retry workflows
-
-
-
-\### Real-Time Monitoring
-
-
-
-Socket.IO is used to stream runtime events between the backend and frontend.
-
-
-
-The monitoring dashboard provides visibility into:
-
-
-
-\- Task progress
-
-\- Worker activity
-
-\- Worker health
-
-\- Worker CPU usage
-
-\- Worker memory usage
-
-\- Queue status
-
-\- Scheduling decisions
-
-\- Task completion
-
-\- Failures and retries
-
-\- Cluster activity
-
-\- System telemetry
-
-
-
-\---
-
-
-
-\## Monitoring Dashboard
-
-
-
-The React dashboard contains multiple monitoring components.
-
-
-
-\### Metrics Cards
-
-
-
-Displays high-level system metrics and workload statistics.
-
-
-
-\### Task Pipeline
-
-
-
-Visualizes the current workload as it moves through different orchestration stages.
-
-
-
-Example:
-
-
+## Task Execution Workflow
 
 ```text
-
-Upload
-
-&#x20; |
-
-&#x20; v
-
-Classification
-
-&#x20; |
-
-&#x20; v
-
-Chunking
-
-&#x20; |
-
-&#x20; v
-
-Scheduling
-
-&#x20; |
-
-&#x20; v
-
-Processing
-
-&#x20; |
-
-&#x20; v
-
-Aggregation
-
-&#x20; |
-
-&#x20; v
-
-Completed
-
-```
-
-
-
-\### Worker Panel
-
-
-
-Displays registered workers and their runtime information, including:
-
-
-
-\- Worker ID
-
-\- Worker type
-
-\- Health status
-
-\- Current load
-
-\- CPU utilization
-
-\- Memory utilization
-
-\- Jobs processed
-
-\- Failure information
-
-\- Average latency
-
-\- Heartbeat status
-
-
-
-\### Queue Overview
-
-
-
-Provides visibility into current queue activity and pending workload information.
-
-
-
-\### Cluster Activity
-
-
-
-Visualizes historical cluster activity, including processing and workload trends.
-
-
-
-\### Resource Monitor
-
-
-
-Displays system resource information reported by workers.
-
-
-
-\### Telemetry Panel
-
-
-
-Shows real-time orchestration and scheduling events generated by the backend.
-
-
-
-\### Execution Summary
-
-
-
-Provides execution-related metrics and statistics collected during system operation.
-
-
-
-\---
-
-
-
-\## System Architecture
-
-
-
-```text
-
-&#x20;                        +----------------------+
-
-&#x20;                        |     React Frontend   |
-
-&#x20;                        | Monitoring Dashboard |
-
-&#x20;                        +----------+-----------+
-
-&#x20;                                   |
-
-&#x20;                            HTTP / Socket.IO
-
-&#x20;                                   |
-
-&#x20;                                   v
-
-&#x20;                        +----------------------+
-
-&#x20;                        |   Node.js + Express  |
-
-&#x20;                        |    Backend Server    |
-
-&#x20;                        +----------+-----------+
-
-&#x20;                                   |
-
-&#x20;                    +--------------+--------------+
-
-&#x20;                    |                             |
-
-&#x20;                    v                             v
-
-&#x20;           +------------------+          +------------------+
-
-&#x20;           | Intelligent      |          | Real-Time        |
-
-&#x20;           | Scheduler        |          | Telemetry        |
-
-&#x20;           +--------+---------+          +------------------+
-
-&#x20;                    |
-
-&#x20;                    v
-
-&#x20;           +------------------+
-
-&#x20;           | Redis + BullMQ   |
-
-&#x20;           | Task Queue       |
-
-&#x20;           +--------+---------+
-
-&#x20;                    |
-
-&#x20;         +----------+----------+
-
-&#x20;         |                     |
-
-&#x20;         v                     v
-
-&#x20;+----------------+    +----------------+
-
-&#x20;|  CPU Workers   |    |  I/O Workers   |
-
-&#x20;| PDF / Image    |    | Audio / Video  |
-
-&#x20;+----------------+    +----------------+
-
-&#x20;         |                     |
-
-&#x20;         +----------+----------+
-
-&#x20;                    |
-
-&#x20;                    v
-
-&#x20;           +------------------+
-
-&#x20;           | Result Handling  |
-
-&#x20;           | \& Aggregation    |
-
-&#x20;           +--------+---------+
-
-&#x20;                    |
-
-&#x20;                    v
-
-&#x20;           +------------------+
-
-&#x20;           |     MongoDB      |
-
-&#x20;           | Task / Metrics   |
-
-&#x20;           +------------------+
-
-```
-
-
-
-\---
-
-
-
-\## Workload Execution Flow
-
-
-
-```text
-
 User Upload
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 File Validation
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Workload Classification
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Task Creation
-
-&#x20;   |
-
-&#x20;   v
-
-Chunking (if required)
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
+Chunking (when required)
+    |
+    v
 Priority Assignment
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Intelligent Scheduler
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Worker Selection
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Redis / BullMQ Queue
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Distributed Worker Execution
-
-&#x20;   |
-
-&#x20;   +---- Failure ----> Retry / Reassignment
-
-&#x20;   |
-
-&#x20;   v
-
-Chunk Completion
-
-&#x20;   |
-
-&#x20;   v
-
-Result Aggregation
-
-&#x20;   |
-
-&#x20;   v
-
-Task Completion
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    +---- Failure ----> Retry / Reassignment
+    |
+    v
+Task / Chunk Completion
+    |
+    v
+Result Handling
+    |
+    v
 Temporary File Cleanup
-
-&#x20;   |
-
-&#x20;   v
-
+    |
+    v
 Real-Time Dashboard Update
-
 ```
 
+---
 
+## Monitoring Dashboard
 
-\---
+The React-based monitoring dashboard provides a centralized view of the orchestration system.
 
+### Metrics Cards
 
+Displays high-level runtime and workload statistics.
 
-\## Technology Stack
+### Task Pipeline
 
+Visualizes the progress of workloads through different processing stages.
 
+### Worker Panel
 
-\### Backend
+Displays information about registered workers, including:
 
+- Worker ID
+- Worker type
+- Health status
+- Current load
+- CPU utilization
+- Memory utilization
+- Jobs processed
+- Average latency
+- Failure information
+- Heartbeat status
 
+### Queue Overview
 
-\- Node.js
+Provides visibility into current queue activity and workload state.
 
-\- Express.js
+### Cluster Activity
 
-\- MongoDB
+Displays cluster-level processing activity and workload trends.
 
-\- Mongoose
+### Resource Monitor
 
-\- Redis
+Shows resource utilization information reported by active workers.
 
-\- BullMQ
+### Telemetry Panel
 
-\- Socket.IO
+Displays real-time scheduling and orchestration events generated by the backend.
 
-\- Multer
+### Execution Summary
 
-\- UUID
+Provides execution-related metrics and task processing statistics.
 
-\- PM2
+---
 
+## Technology Stack
 
+### Backend
 
-\### Frontend
+| Technology | Purpose |
+| --- | --- |
+| Node.js | Backend runtime |
+| Express.js | HTTP server and API layer |
+| MongoDB | Task and metrics persistence |
+| Mongoose | MongoDB object modeling |
+| Redis | Queue infrastructure |
+| BullMQ | Distributed task queue management |
+| Socket.IO | Real-time communication |
+| Multer | File upload handling |
+| PM2 | Worker process management |
 
+### Frontend
 
+| Technology | Purpose |
+| --- | --- |
+| React | Monitoring dashboard |
+| Axios | HTTP communication |
+| Socket.IO Client | Real-time backend events |
+| Recharts | Data visualization |
+| Framer Motion | UI animations |
+| Lucide React | Interface icons |
 
-\- React
+---
 
-\- Axios
-
-\- Socket.IO Client
-
-\- Recharts
-
-\- Framer Motion
-
-\- Lucide React
-
-
-
-\### Infrastructure and Runtime
-
-
-
-\- Redis for queue infrastructure
-
-\- MongoDB for persistence
-
-\- PM2 for worker process management
-
-\- Socket.IO for real-time communication
-
-
-
-\---
-
-
-
-\## Project Structure
-
-
+## Project Structure
 
 ```text
-
-intelligent\_task\_scheduler/
-
+intelligent_task_scheduler/
 |
-
-+-- backend/
-
+|-- backend/
 |   |
-
-|   +-- config/
-
-|   |   +-- db.js
-
-|   |   +-- redis.js
-
+|   |-- config/
+|   |   |-- db.js
+|   |   `-- redis.js
 |   |
-
-|   +-- models/
-
-|   |   +-- Task.js
-
-|   |   +-- WorkerMetrics.js
-
+|   |-- models/
+|   |   |-- Task.js
+|   |   `-- WorkerMetrics.js
 |   |
-
-|   +-- queues/
-
-|   |   +-- queueEvents.js
-
-|   |   +-- taskQueue.js
-
+|   |-- queues/
+|   |   |-- queueEvents.js
+|   |   `-- taskQueue.js
 |   |
-
-|   +-- scheduler/
-
-|   |   +-- scheduler.js
-
+|   |-- scheduler/
+|   |   `-- scheduler.js
 |   |
-
-|   +-- utils/
-
-|   |   +-- dynamicWorkerManager.js
-
-|   |   +-- eventLogger.js
-
+|   |-- utils/
+|   |   |-- dynamicWorkerManager.js
+|   |   `-- eventLogger.js
 |   |
-
-|   +-- workers/
-
-|   |   +-- worker.js
-
+|   |-- workers/
+|   |   `-- worker.js
 |   |
-
-|   +-- server.js
-
-|   +-- resetSystem.js
-
-|   +-- ecosystem.config.js
-
-|   +-- .env.example
-
-|   +-- package.json
-
-|   +-- package-lock.json
-
+|   |-- server.js
+|   |-- resetSystem.js
+|   |-- ecosystem.config.js
+|   |-- .env.example
+|   `-- package.json
 |
-
-+-- frontend/
-
+|-- frontend/
 |   |
-
-|   +-- public/
-
+|   |-- public/
 |   |
-
-|   +-- src/
-
+|   |-- src/
 |   |   |
-
-|   |   +-- components/
-
-|   |   |   +-- ClusterActivity.jsx
-
-|   |   |   +-- ExecutionSummary.jsx
-
-|   |   |   +-- Layout.jsx
-
-|   |   |   +-- MetricsCards.jsx
-
-|   |   |   +-- QueueOverview.jsx
-
-|   |   |   +-- ResourceMonitor.jsx
-
-|   |   |   +-- TaskPipeline.jsx
-
-|   |   |   +-- TelemetryPanel.jsx
-
-|   |   |   +-- Upload.jsx
-
-|   |   |   +-- WorkerPanel.jsx
-
+|   |   |-- components/
+|   |   |   |-- ClusterActivity.jsx
+|   |   |   |-- ExecutionSummary.jsx
+|   |   |   |-- Layout.jsx
+|   |   |   |-- MetricsCards.jsx
+|   |   |   |-- QueueOverview.jsx
+|   |   |   |-- ResourceMonitor.jsx
+|   |   |   |-- TaskPipeline.jsx
+|   |   |   |-- TelemetryPanel.jsx
+|   |   |   |-- Upload.jsx
+|   |   |   `-- WorkerPanel.jsx
 |   |   |
-
-|   |   +-- context/
-
-|   |   |   +-- OrchestrationContext.jsx
-
+|   |   |-- context/
+|   |   |   `-- OrchestrationContext.jsx
 |   |   |
-
-|   |   +-- services/
-
-|   |   |   +-- api.js
-
-|   |   |   +-- socket.js
-
+|   |   |-- services/
+|   |   |   |-- api.js
+|   |   |   `-- socket.js
 |   |   |
-
-|   |   +-- App.jsx
-
-|   |   +-- App.css
-
-|   |   +-- index.js
-
+|   |   |-- App.jsx
+|   |   |-- App.css
+|   |   `-- index.js
 |   |
-
-|   +-- package.json
-
-|   +-- package-lock.json
-
+|   `-- package.json
 |
-
-+-- .gitignore
-
-+-- README.md
-
+|-- .gitignore
+`-- README.md
 ```
 
+---
 
+## Prerequisites
 
-\---
+Ensure the following software is installed before running the project:
 
+- Node.js
+- npm
+- MongoDB
+- Redis
+- PM2
 
-
-\## Prerequisites
-
-
-
-Before running the project, ensure the following are installed:
-
-
-
-\- Node.js
-
-\- npm
-
-\- MongoDB
-
-\- Redis
-
-\- PM2
-
-
-
-PM2 can be installed globally using:
-
-
+Install PM2 globally if required:
 
 ```bash
-
 npm install -g pm2
-
 ```
 
+---
 
+## Installation and Setup
 
-\---
-
-
-
-\## Installation
-
-
-
-Clone the repository:
-
-
+### 1. Clone the Repository
 
 ```bash
-
 git clone https://github.com/deerajkumar03/intelligent-task-scheduling-system.git
-
 ```
 
-
-
-Navigate to the project:
-
-
+Navigate to the project directory:
 
 ```bash
-
 cd intelligent-task-scheduling-system
-
 ```
 
+### 2. Configure the Backend
 
-
-\### Backend Setup
-
-
+Navigate to the backend directory:
 
 ```bash
-
 cd backend
-
-npm install
-
 ```
 
+Install dependencies:
 
+```bash
+npm install
+```
 
 Create a `.env` file using `.env.example` as the reference and configure the required environment variables.
 
-
-
-Start the backend:
-
-
+Start the backend server:
 
 ```bash
-
-npm start
-
-```
-
-
-
-Or:
-
-
-
-```bash
-
 node server.js
-
 ```
 
+### 3. Start Worker Processes
 
-
-\### Start Worker Processes
-
-
-
-Using PM2:
-
-
+From the backend directory, start the configured worker processes using PM2:
 
 ```bash
-
 pm2 start ecosystem.config.js
-
 ```
-
-
 
 Check worker status:
 
-
-
 ```bash
-
 pm2 list
-
 ```
-
-
 
 View worker logs:
 
-
-
 ```bash
-
 pm2 logs
-
 ```
 
+### 4. Start the Frontend
 
-
-\### Frontend Setup
-
-
-
-Open another terminal:
-
-
+Open a new terminal and navigate to the frontend directory:
 
 ```bash
-
 cd frontend
+```
 
+Install dependencies:
+
+```bash
 npm install
+```
 
+Start the React application:
+
+```bash
 npm start
-
 ```
 
+The frontend will connect to the backend and display real-time orchestration activity.
 
+---
 
-The React development server will start and connect to the backend services.
+## Environment Configuration
 
-
-
-\---
-
-
-
-\## Environment Configuration
-
-
-
-The repository includes:
-
-
+The repository contains an example environment configuration file:
 
 ```text
-
 backend/.env.example
-
 ```
 
-
-
-Create your local environment file:
-
-
+Create the local environment file:
 
 ```text
-
 backend/.env
-
 ```
 
+Configure the required values based on `.env.example`.
 
+> Do not commit `.env` files, credentials, connection strings, or other sensitive configuration values to the repository.
 
-Configure the values required by the backend according to `.env.example`.
+---
 
-
-
-> Never commit the actual `.env` file or production credentials to the repository.
-
-
-
-\---
-
-
-
-\## Running the System
-
-
+## Running the Complete System
 
 A typical local startup sequence is:
 
+1. Start MongoDB.
+2. Start Redis.
+3. Start the backend server.
+4. Start worker processes using PM2.
+5. Start the React frontend.
+6. Upload a supported workload.
+7. Observe scheduling and execution through the monitoring dashboard.
 
+---
 
-```text
-
-1\. Start MongoDB
-
-2\. Start Redis
-
-3\. Start backend server
-
-4\. Start PM2 workers
-
-5\. Start React frontend
-
-6\. Upload a workload
-
-7\. Monitor execution through the dashboard
-
-```
-
-
-
-\---
-
-
-
-\## Testing
-
-
+## Testing and Validation
 
 The system has been tested with multiple workload types, including:
 
+- PDF files
+- Image files
+- Video files
 
+The following functionality has been validated during development:
 
-\- PDF workloads
+- Workload classification
+- CPU and I/O worker routing
+- Specialized worker selection
+- Load-aware scheduling
+- Priority-aware scheduling
+- Multi-chunk video processing
+- Parallel chunk distribution
+- Task completion
+- Worker failure detection
+- Retry and task reassignment
+- Dynamic worker spawning
+- Dynamic worker idle termination
+- Queue event monitoring
+- Real-time telemetry
+- Worker resource monitoring
+- Temporary chunk cleanup
 
-\- Image workloads
+---
 
-\- Video workloads
+## Example Scheduling Decision
 
-
-
-Testing verified:
-
-
-
-\- Workload classification
-
-\- Specialized worker selection
-
-\- CPU and I/O worker routing
-
-\- Multi-chunk video processing
-
-\- Parallel chunk distribution
-
-\- Load-aware worker selection
-
-\- Task completion
-
-\- Retry and worker failure handling
-
-\- Dynamic worker spawning
-
-\- Dynamic worker idle termination
-
-\- Real-time telemetry
-
-\- Worker monitoring
-
-\- Queue monitoring
-
-\- Temporary chunk cleanup
-
-
-
-\---
-
-
-
-\## Example Scheduling Decision
-
-
-
-A scheduling decision may consider information similar to:
-
-
+The scheduler generates observable decision information similar to the following:
 
 ```text
-
 Worker Type: I/O
-
 Task Type: Video
-
 Current Load: 0
-
 Average Latency: 0.00
-
 Priority Boost: 4
 
-
-
 Selected Because:
-
-\- Specialized Worker
-
-\- Low Load
-
-\- Healthy Worker
-
+- Specialized Worker
+- Low Load
+- Healthy Worker
 ```
 
+This information is exposed through telemetry to provide visibility into why a particular worker was selected.
 
+---
 
-This makes scheduling decisions observable rather than treating worker assignment as a black box.
-
-
-
-\---
-
-
-
-\## Dynamic Worker Lifecycle
-
-
+## Dynamic Worker Lifecycle
 
 ```text
-
-Workload Increase
-
-&#x20;     |
-
-&#x20;     v
-
+Workload Demand Increases
+          |
+          v
 Scaling Condition Detected
-
-&#x20;     |
-
-&#x20;     v
-
-Spawn Dynamic Worker
-
-&#x20;     |
-
-&#x20;     v
-
-Worker Connects
-
-&#x20;     |
-
-&#x20;     v
-
-Scheduler Registration
-
-&#x20;     |
-
-&#x20;     v
-
-Task Processing
-
-&#x20;     |
-
-&#x20;     v
-
+          |
+          v
+Dynamic Worker Spawned
+          |
+          v
+Worker Connects and Registers
+          |
+          v
+Worker Processes Tasks
+          |
+          v
 Worker Becomes Idle
-
-&#x20;     |
-
-&#x20;     v
-
-Idle Timeout
-
-&#x20;     |
-
-&#x20;     v
-
-Worker Termination
-
+          |
+          v
+Idle Timeout Reached
+          |
+          v
+Dynamic Worker Terminated
 ```
 
+---
 
+## Future Enhancements
 
-\---
+Potential future improvements include:
 
+- Docker-based containerization
+- Kubernetes-based worker orchestration and auto-scaling
+- Deployment across multiple physical or cloud machines
+- Advanced scheduling algorithms
+- Workload prediction using machine learning
+- Persistent task result management
+- Authentication and authorization
+- Role-based dashboard access
+- Distributed tracing and enhanced observability
+- Prometheus and Grafana integration
+- Cloud deployment
+- Performance benchmarking under concurrent workloads
 
+---
 
-\## Future Enhancements
+## Project Scope
 
+This project is an academic distributed task orchestration prototype developed to demonstrate the concepts of:
 
+- Metric-based intelligent scheduling
+- Distributed worker coordination
+- Specialized workload processing
+- Parallel task execution
+- Dynamic worker management
+- Fault handling and retry mechanisms
+- Queue-based asynchronous processing
+- Real-time monitoring and telemetry
 
-Possible future improvements include:
+The project focuses on demonstrating the architecture and behavior of an observable, workload-aware distributed task processing system.
 
+---
 
+## Author
 
-\- Containerized worker deployment using Docker
+**Deeraj Kumar**
 
-\- Kubernetes-based automatic scaling
+Master of Computer Applications (MCA)  
+Major Project
 
-\- Distributed deployment across multiple physical machines
+GitHub: `deerajkumar03`
 
-\- Advanced scheduling algorithms
+---
 
-\- Machine-learning-based workload prediction
+## Repository
 
-\- Persistent task result storage
+**Intelligent Task Scheduling System with Real-Time Monitoring**
 
-\- Authentication and authorization
-
-\- Role-based dashboard access
-
-\- Improved observability and tracing
-
-\- Prometheus and Grafana integration
-
-\- Cloud deployment
-
-\- Performance benchmarking under high concurrent workloads
-
-
-
-\---
-
-
-
-\## Project Scope
-
-
-
-This project is an academic distributed task orchestration prototype designed to demonstrate:
-
-
-
-\- Intelligent metric-based scheduling
-
-\- Distributed worker coordination
-
-\- Parallel task processing
-
-\- Dynamic worker management
-
-\- Fault handling and retries
-
-\- Queue-based asynchronous execution
-
-\- Real-time monitoring and telemetry
-
-
-
-It is not intended to replace production-scale distributed orchestration platforms, but demonstrates the core concepts involved in building an observable and workload-aware distributed task processing system.
-
-
-
-\---
-
-
-
-\## Author
-
-
-
-\*\*Deeraj Kumar\*\*
-
-
-
-MCA Major Project
-
-
-
-GitHub: \[deerajkumar03](https://github.com/deerajkumar03)
-
-
-
-\---
-
-
-
-\## Repository
-
-
-
-\[GitHub Repository](https://github.com/deerajkumar03/intelligent-task-scheduling-system)
-
+Repository: `deerajkumar03/intelligent-task-scheduling-system`
