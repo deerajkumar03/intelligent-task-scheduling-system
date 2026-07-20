@@ -1,23 +1,24 @@
 # Intelligent Task Scheduling System with Real-Time Monitoring
 
-A distributed task orchestration system designed to schedule heterogeneous workloads across specialized workers while providing real-time visibility into task execution, worker health, queue activity, resource utilization, and scheduling decisions.
+A distributed task orchestration system designed to intelligently schedule heterogeneous workloads across specialized workers while providing real-time visibility into task execution, worker health, queue activity, resource utilization, and scheduling decisions.
 
-The system uses a metric-based scheduling strategy to select suitable workers based on specialization, current load, health status, execution latency, and task priority. It also supports chunk-based parallel processing, failure recovery, retry mechanisms, and dynamic worker scaling.
+The system uses a metric-based scheduling strategy to select suitable workers based on specialization, current load, health status, execution latency, and task priority. It also supports chunk-based parallel processing, failure recovery, retry mechanisms, dynamic worker scaling, and real-time telemetry.
 
 ---
 
 ## Overview
 
-Modern task-processing systems often need to handle workloads with different computational and I/O characteristics. Assigning every task to workers without considering their specialization or runtime condition can lead to inefficient resource utilization and poor execution performance.
+Modern task-processing systems often need to handle workloads with different computational and I/O characteristics. Assigning every task without considering worker specialization or runtime conditions can lead to inefficient resource utilization and poor workload distribution.
 
 The **Intelligent Task Scheduling System with Real-Time Monitoring** addresses this problem through a distributed orchestration architecture that:
 
 - Classifies incoming workloads.
 - Routes tasks to specialized CPU or I/O workers.
-- Considers worker load, health, and latency during scheduling.
+- Considers worker load, health, and execution latency during scheduling.
+- Supports priority-aware task scheduling.
 - Splits suitable workloads into chunks for parallel execution.
 - Handles worker execution failures through retries and reassignment.
-- Dynamically adds worker capacity when required.
+- Dynamically adds worker capacity when configured workload conditions are reached.
 - Provides real-time monitoring through an interactive dashboard.
 
 The system currently supports workloads including **PDF, image, audio, and video files**.
@@ -47,16 +48,21 @@ The system separates workers based on workload characteristics.
 
 | Worker Type | Typical Workloads |
 | --- | --- |
-| CPU Worker | PDF, Image, Compute-oriented tasks |
-| I/O Worker | Audio, Video, File-intensive tasks |
+| CPU Worker | PDF, Image, Compute-oriented workloads |
+| I/O Worker | Audio, Video, File-intensive workloads |
 
-This allows workloads to be routed to workers better suited to their processing requirements.
+The default PM2 configuration starts:
+
+- 2 CPU workers
+- 2 I/O workers
+
+This allows workloads to be routed to workers that are better suited to their processing requirements.
 
 ### Chunk-Based Parallel Processing
 
 Large workloads can be divided into smaller chunks and scheduled independently.
 
-Multiple chunks can be distributed across available workers, allowing parallel processing and improved workload distribution.
+Multiple chunks can be distributed across available workers, enabling parallel processing and improved workload distribution.
 
 After all required chunks are processed, the system completes the parent task and cleans temporary chunk data.
 
@@ -69,7 +75,7 @@ Tasks can be submitted with different priority levels:
 - High
 - Critical
 
-Priority information is incorporated into the scheduling process and influences task execution decisions.
+Priority information is incorporated into the scheduling process and influences task scheduling decisions.
 
 ### Fault Handling and Retry Mechanism
 
@@ -77,21 +83,38 @@ The system includes fault-handling logic for worker execution failures.
 
 When an execution attempt fails:
 
-1. The failure is detected.
+1. The execution failure is detected.
 2. The failed attempt is recorded.
 3. The task can be reassigned to another suitable worker.
 4. Execution is retried according to the configured retry policy.
 5. The task is marked as permanently failed if the retry limit is exhausted.
 
-This provides resilience against temporary worker failures.
+This provides resilience against temporary worker execution failures.
 
 ### Dynamic Worker Scaling
 
-The system includes a dynamic worker management mechanism for handling increased workload demand.
+The system includes a dynamic worker management mechanism for responding to increased workload demand.
 
-When configured workload conditions are reached, additional workers can be spawned dynamically. These workers connect to the system, register with the scheduler, and become available for task execution.
+When the configured queue threshold is reached, additional worker capacity can be created dynamically, subject to the configured scaling limits and cooldown period.
 
-When a dynamically created worker remains idle beyond the configured timeout, it is automatically terminated.
+A dynamically created worker:
+
+1. Is spawned by the dynamic worker manager.
+2. Connects to the backend.
+3. Registers with the scheduler.
+4. Becomes available for task execution.
+5. Processes assigned workloads.
+6. Remains active while required.
+7. Is terminated after exceeding the configured idle timeout.
+
+The current development configuration uses:
+
+```text
+Dynamic Worker Queue Threshold: 8
+Maximum Dynamic Workers: 4
+Dynamic Worker Idle Timeout: 120000 ms
+Dynamic Worker Spawn Cooldown: 10000 ms
+```
 
 This demonstrates workload-driven worker scaling within the orchestration system.
 
@@ -103,7 +126,7 @@ The queue infrastructure supports:
 
 - Task queuing
 - Asynchronous processing
-- Worker execution
+- Distributed worker execution
 - Queue event monitoring
 - Failure handling
 - Retry workflows
@@ -123,7 +146,8 @@ The dashboard provides visibility into:
 - Queue activity
 - Scheduling decisions
 - Task completion
-- Failures and retries
+- Execution failures
+- Retry activity
 - Cluster activity
 - Runtime telemetry
 
@@ -132,53 +156,57 @@ The dashboard provides visibility into:
 ## System Architecture
 
 ```text
-+---------------------------+
-|      React Frontend       |
-|   Monitoring Dashboard    |
-+-------------+-------------+
-              |
-        HTTP / Socket.IO
-              |
-              v
-+---------------------------+
-|    Node.js / Express      |
-|      Backend Server       |
-+-------------+-------------+
-              |
-     +--------+--------+
-     |                 |
-     v                 v
-+------------+   +-------------+
-| Scheduler  |   |  Telemetry  |
-+-----+------+   +-------------+
-      |
-      v
-+---------------------------+
-|      Redis / BullMQ       |
-|        Task Queue         |
-+-------------+-------------+
-              |
-       +------+------+
-       |             |
-       v             v
-+-------------+ +-------------+
-| CPU Workers | | I/O Workers |
-| PDF / Image | |Audio / Video|
-+------+------+ +------+------+
-       |               |
-       +-------+-------+
++-----------------------------+
+|       React Frontend        |
+|    Monitoring Dashboard     |
+|       Port: 3000            |
++--------------+--------------+
+               |
+         HTTP / Socket.IO
                |
                v
-+---------------------------+
-| Task Completion / Result  |
-| Handling and Aggregation  |
-+-------------+-------------+
-              |
-              v
-+---------------------------+
-|          MongoDB          |
-|    Tasks and Metrics      |
-+---------------------------+
++-----------------------------+
+|      Node.js / Express      |
+|        Backend Server       |
+|         Port: 5000          |
++--------------+--------------+
+               |
+       +-------+-------+
+       |               |
+       v               v
++-------------+   +-------------+
+|  Scheduler  |   |  Telemetry  |
++------+------+   +-------------+
+       |
+       v
++-----------------------------+
+|        Redis / BullMQ       |
+|          Task Queue         |
+|          Port: 6379         |
++--------------+--------------+
+               |
+        +------+------+
+        |             |
+        v             v
++--------------+ +--------------+
+| CPU Workers  | | I/O Workers  |
+| PDF / Image  | |Audio / Video |
++------+-------+ +------+-------+
+       |                |
+       +--------+-------+
+                |
+                v
++-----------------------------+
+| Task Completion and Result  |
+|          Handling           |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+|           MongoDB           |
+|   Tasks and Worker Metrics  |
+|         Port: 27017         |
++-----------------------------+
 ```
 
 ---
@@ -391,6 +419,7 @@ Ensure the following software is installed before running the project:
 - MongoDB
 - Redis
 - PM2
+- WSL / Ubuntu for the current Redis development setup on Windows
 
 Install PM2 globally if required:
 
@@ -400,7 +429,7 @@ npm install -g pm2
 
 ---
 
-## Installation and Setup
+## Installation
 
 ### 1. Clone the Repository
 
@@ -414,7 +443,7 @@ Navigate to the project directory:
 cd intelligent-task-scheduling-system
 ```
 
-### 2. Configure the Backend
+### 2. Install Backend Dependencies
 
 Navigate to the backend directory:
 
@@ -422,130 +451,292 @@ Navigate to the backend directory:
 cd backend
 ```
 
-Install dependencies:
+Install the required dependencies:
 
 ```bash
 npm install
 ```
 
-Create a `.env` file using `.env.example` as the reference and configure the required environment variables.
+### 3. Install Frontend Dependencies
 
-Start the backend server:
-
-```bash
-node server.js
-```
-
-### 3. Start Worker Processes
-
-From the backend directory, start the configured worker processes using PM2:
+Navigate to the frontend directory:
 
 ```bash
-pm2 start ecosystem.config.js
+cd ../frontend
 ```
 
-Check worker status:
-
-```bash
-pm2 list
-```
-
-View worker logs:
-
-```bash
-pm2 logs
-```
-
-### 4. Start the Frontend
-
-Open a new terminal and navigate to the frontend directory:
-
-```bash
-cd frontend
-```
-
-Install dependencies:
+Install the required dependencies:
 
 ```bash
 npm install
 ```
-
-Start the React application:
-
-```bash
-npm start
-```
-
-The frontend will connect to the backend and display real-time orchestration activity.
 
 ---
 
 ## Environment Configuration
 
-The repository contains an example environment configuration file:
+Create a `.env` file inside the `backend` directory using `.env.example` as a reference.
 
-```text
-backend/.env.example
+Example local development configuration:
+
+```env
+MONGO_URI=mongodb://127.0.0.1:27017/intelligenttaskScheduler
+
+PORT=5000
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+NODE_ENV=development
+
+SERVER_URL=http://localhost:5000
+CLIENT_URL=http://localhost:3000
+
+MAX_ACTIVE_JOBS=3
+
+MAX_DYNAMIC_WORKERS=4
+DYNAMIC_WORKER_QUEUE_THRESHOLD=8
+DYNAMIC_WORKER_IDLE_TIMEOUT=120000
+DYNAMIC_WORKER_SPAWN_COOLDOWN=10000
+
+ENABLE_FAILURE_SIMULATION=false
+FAILURE_RATE=0.15
 ```
 
-Create the local environment file:
+### Configuration Details
 
-```text
-backend/.env
-```
+| Variable | Description |
+| --- | --- |
+| `MONGO_URI` | Local MongoDB connection URI |
+| `PORT` | Backend server port |
+| `REDIS_HOST` | Redis server host |
+| `REDIS_PORT` | Redis server port |
+| `NODE_ENV` | Application runtime environment |
+| `SERVER_URL` | Backend server URL |
+| `CLIENT_URL` | React frontend URL allowed by the backend |
+| `MAX_ACTIVE_JOBS` | Maximum configured number of active jobs |
+| `MAX_DYNAMIC_WORKERS` | Maximum number of dynamically created workers |
+| `DYNAMIC_WORKER_QUEUE_THRESHOLD` | Queue threshold used to trigger dynamic worker scaling |
+| `DYNAMIC_WORKER_IDLE_TIMEOUT` | Idle duration in milliseconds before a dynamic worker is terminated |
+| `DYNAMIC_WORKER_SPAWN_COOLDOWN` | Minimum delay between dynamic worker spawn operations |
+| `ENABLE_FAILURE_SIMULATION` | Enables or disables simulated worker failures for testing |
+| `FAILURE_RATE` | Failure probability used when failure simulation is enabled |
 
-Configure the required values based on `.env.example`.
-
-> Do not commit `.env` files, credentials, connection strings, or other sensitive configuration values to the repository.
+> The actual `.env` file is excluded from Git tracking. Do not commit credentials, secrets, or sensitive environment configuration to the repository.
 
 ---
 
 ## Running the Complete System
 
-A typical local startup sequence is:
+The application requires **MongoDB, Redis, the backend server, worker processes, and the React frontend** to operate together.
 
-1. Start MongoDB.
-2. Start Redis.
-3. Start the backend server.
-4. Start worker processes using PM2.
-5. Start the React frontend.
-6. Upload a supported workload.
-7. Observe scheduling and execution through the monitoring dashboard.
+The following procedure represents the current local Windows development environment.
+
+### Step 1: Ensure MongoDB Is Running
+
+The backend uses a local MongoDB instance:
+
+```text
+mongodb://127.0.0.1:27017/intelligenttaskScheduler
+```
+
+Ensure the MongoDB service is running before starting the backend.
+
+The database `intelligenttaskScheduler` is used by the application for persistence.
 
 ---
 
-## Testing and Validation
+### Step 2: Verify Redis Using Ubuntu / WSL
 
-The system has been tested with multiple workload types, including:
+Redis is used by BullMQ for queue management.
 
-- PDF files
-- Image files
-- Video files
+Open the Ubuntu/WSL terminal.
 
-The following functionality has been validated during development:
+Connect to the Redis server:
 
-- Workload classification
-- CPU and I/O worker routing
-- Specialized worker selection
-- Load-aware scheduling
-- Priority-aware scheduling
-- Multi-chunk video processing
-- Parallel chunk distribution
-- Task completion
-- Worker failure detection
-- Retry and task reassignment
-- Dynamic worker spawning
-- Dynamic worker idle termination
-- Queue event monitoring
-- Real-time telemetry
-- Worker resource monitoring
-- Temporary chunk cleanup
+```bash
+redis-cli
+```
+
+Verify the connection:
+
+```text
+127.0.0.1:6379> ping
+PONG
+```
+
+A `PONG` response confirms that Redis is running and accessible.
+
+If Redis is not running, start the Redis server first:
+
+```bash
+redis-server
+```
+
+Keep Redis running while using the application.
+
+The Ubuntu/WSL terminal can remain open or minimized while the rest of the application is running.
+
+---
+
+### Step 3: Start the Backend Server
+
+Open a new terminal and navigate to the backend directory:
+
+```bash
+cd backend
+```
+
+Start the backend:
+
+```bash
+node server.js
+```
+
+A successful startup should display messages similar to:
+
+```text
+Redis connected
+MongoDB connected
+Intelligent Task Scheduler running on port 5000
+```
+
+Keep this terminal running.
+
+---
+
+### Step 4: Start the Worker Processes
+
+Open another terminal and navigate to the backend directory:
+
+```bash
+cd backend
+```
+
+Start the configured workers using PM2:
+
+```bash
+pm2 start ecosystem.config.js
+```
+
+The default PM2 configuration starts:
+
+```text
+2 CPU Workers
+2 I/O Workers
+```
+
+Verify the worker processes:
+
+```bash
+pm2 list
+```
+
+The CPU and I/O worker processes should appear with an `online` status.
+
+Worker logs can be inspected using:
+
+```bash
+pm2 logs
+```
+
+---
+
+### Step 5: Start the Frontend
+
+Open another terminal and navigate to the frontend directory:
+
+```bash
+cd frontend
+```
+
+Start the React development server:
+
+```bash
+npm start
+```
+
+The frontend application runs at:
+
+```text
+http://localhost:3000
+```
+
+The frontend communicates with the backend running at:
+
+```text
+http://localhost:5000
+```
+
+---
+
+### Step 6: Test the System
+
+Upload a supported workload through the monitoring dashboard.
+
+The system will:
+
+1. Accept and validate the uploaded workload.
+2. Classify the workload type.
+3. Create the task.
+4. Divide suitable workloads into chunks when required.
+5. Apply task priority information.
+6. Evaluate available workers.
+7. Select a suitable CPU or I/O worker.
+8. Process tasks through the distributed worker pool.
+9. Display scheduling decisions and execution activity in real time.
+10. Handle retries and worker reassignment when execution failures occur.
+11. Dynamically create additional workers when configured scaling conditions are reached.
+12. Terminate idle dynamic workers after the configured timeout.
+13. Complete the task and clean temporary chunk data.
+
+During execution, activity can be monitored through both the backend terminal and the real-time dashboard.
+
+---
+
+## Local Development Runtime
+
+```text
+             MongoDB
+      127.0.0.1 : 27017
+                 |
+                 |
+                 v
++--------------------------------+
+|     Node.js / Express Backend   |
+|      http://localhost:5000      |
++---------------+----------------+
+                |
+                |
+        Redis / BullMQ Queue
+         127.0.0.1 : 6379
+                |
+        +-------+-------+
+        |               |
+        v               v
+ +-------------+  +-------------+
+ | CPU Workers |  | I/O Workers |
+ |    PM2      |  |    PM2      |
+ +------+------+  +------+------+
+        |                |
+        +--------+-------+
+                 |
+                 v
+       Socket.IO Telemetry
+                 |
+                 v
++--------------------------------+
+|        React Frontend          |
+|      http://localhost:3000     |
+|     Monitoring Dashboard       |
++--------------------------------+
+```
 
 ---
 
 ## Example Scheduling Decision
 
-The scheduler generates observable decision information similar to the following:
+The scheduler generates observable scheduling information similar to:
 
 ```text
 Worker Type: I/O
@@ -567,7 +758,10 @@ This information is exposed through telemetry to provide visibility into why a p
 ## Dynamic Worker Lifecycle
 
 ```text
-Workload Demand Increases
+Queue Workload Increases
+          |
+          v
+Configured Threshold Reached
           |
           v
 Scaling Condition Detected
@@ -576,7 +770,13 @@ Scaling Condition Detected
 Dynamic Worker Spawned
           |
           v
-Worker Connects and Registers
+Worker Connects to Backend
+          |
+          v
+Worker Registers with Scheduler
+          |
+          v
+Worker Becomes Available
           |
           v
 Worker Processes Tasks
@@ -591,6 +791,66 @@ Idle Timeout Reached
 Dynamic Worker Terminated
 ```
 
+The current configuration limits the number of dynamically created workers and applies a cooldown between worker spawn operations.
+
+---
+
+## Failure Simulation
+
+The project includes optional failure simulation functionality for testing retry and recovery behavior.
+
+Failure simulation can be enabled using:
+
+```env
+ENABLE_FAILURE_SIMULATION=true
+```
+
+The configured failure probability is controlled through:
+
+```env
+FAILURE_RATE=0.15
+```
+
+For normal operation, failure simulation should remain disabled:
+
+```env
+ENABLE_FAILURE_SIMULATION=false
+```
+
+This functionality is intended for testing the system's failure detection, retry, and worker reassignment behavior.
+
+---
+
+## Testing and Validation
+
+The system has been tested with multiple workload types, including:
+
+- PDF files
+- Image files
+- Audio workloads
+- Video files
+
+The following functionality has been validated during development:
+
+- Workload classification
+- CPU and I/O worker routing
+- Specialized worker selection
+- Load-aware scheduling
+- Priority-aware scheduling
+- Multi-chunk workload processing
+- Parallel chunk distribution
+- Task completion
+- Worker failure detection
+- Retry and task reassignment
+- Permanent failure handling after retry exhaustion
+- Dynamic worker spawning
+- Dynamic worker registration
+- Dynamic worker idle termination
+- Queue event monitoring
+- Real-time telemetry
+- Worker resource monitoring
+- Temporary chunk cleanup
+
 ---
 
 ## Future Enhancements
@@ -598,16 +858,18 @@ Dynamic Worker Terminated
 Potential future improvements include:
 
 - Docker-based containerization
-- Kubernetes-based worker orchestration and auto-scaling
+- Kubernetes-based worker orchestration
+- Kubernetes-based auto-scaling
 - Deployment across multiple physical or cloud machines
 - Advanced scheduling algorithms
-- Workload prediction using machine learning
+- Machine-learning-based workload prediction
 - Persistent task result management
 - Authentication and authorization
 - Role-based dashboard access
-- Distributed tracing and enhanced observability
+- Distributed tracing
 - Prometheus and Grafana integration
 - Cloud deployment
+- Automated integration testing
 - Performance benchmarking under concurrent workloads
 
 ---
@@ -620,10 +882,13 @@ This project is an academic distributed task orchestration prototype developed t
 - Distributed worker coordination
 - Specialized workload processing
 - Parallel task execution
+- Priority-aware scheduling
 - Dynamic worker management
 - Fault handling and retry mechanisms
 - Queue-based asynchronous processing
-- Real-time monitoring and telemetry
+- Real-time monitoring
+- Runtime telemetry
+- Worker resource monitoring
 
 The project focuses on demonstrating the architecture and behavior of an observable, workload-aware distributed task processing system.
 
