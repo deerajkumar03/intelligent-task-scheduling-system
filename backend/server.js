@@ -67,6 +67,7 @@ const {
   jobCompleted,
   jobFailed,
   retryTracked,
+  releaseOrphanedJob,
   getMetrics,
   unregisterWorker
 
@@ -1124,54 +1125,297 @@ totalCompletedJobs++;
       }
     );
     /* =========================
-       DISCONNECT
-    ========================= */
+   DISCONNECT
+========================= */
 
-    socket.on(
+socket.on(
 
-      "disconnect",
+  "disconnect",
 
-      () => {
+  async () => {
 
-        for(
+    for(
+      let [
+        workerId,
+        worker
+      ] of activeWorkers.entries()
+    ){
 
-          let [
+      if(
+        worker.socketId ===
+        socket.id
+      ){
 
-            workerId,
-            worker
+        activeWorkers.delete(
+          workerId
+        );
 
-          ] of activeWorkers.entries()
+        pushLog(
 
-        ){
+          "WORKER_DISCONNECTED",
 
-          if(
-            worker.socketId ===
-            socket.id
+          `Worker ${workerId} disconnected`,
+
+          {
+            workerId
+          }
+        );
+
+        try{
+
+          /*
+            Find tasks that were being processed
+            by the disconnected worker.
+          */
+
+          const staleTasks =
+            await Task.find({
+
+              assignedWorker:
+                workerId,
+
+              status:
+                "processing"
+            });
+
+          for(
+            const task of staleTasks
           ){
 
-           activeWorkers.delete(
-  workerId
-);
+            /*
+              Release scheduler assignment lock
+              before putting the task back
+              into BullMQ.
+            */
 
-unregisterWorker(
-  workerId
-);
+            await releaseOrphanedJob(
+
+              workerId,
+
+              task.jobId
+            );
+
+            const nextRetryCount =
+
+              (task.retryCount || 0) + 1;
+
+            /*
+              Stop retrying when the task
+              has exhausted max retries.
+            */
+
+            if(
+              nextRetryCount >
+              task.maxRetries
+            ){
+
+              task.status =
+                "failed";
+
+              task.assigned =
+                false;
+
+              task.assignedWorker =
+                null;
+
+              task.retryCount =
+                nextRetryCount;
+
+              task.failureReason =
+                "Worker disconnected — max retries exceeded";
+
+              await task.save();
+
+              pushLog(
+
+                "TASK_FAILED",
+
+                `Task ${task.jobId} failed after worker disconnect`,
+
+                {
+                  jobId:
+                    task.jobId,
+
+                  workerId,
+
+                  retryCount:
+                    nextRetryCount
+                }
+              );
+
+              io.emit(
+
+                "task-update",
+
+                {
+                  jobId:
+                    task.jobId,
+
+                  status:
+                    "failed",
+
+                  error:
+                    task.failureReason
+                }
+              );
+
+              continue;
+            }
+
+            /*
+              Reset orphaned task so another
+              healthy worker can process it.
+            */
+
+            task.status =
+              "pending";
+
+            task.assigned =
+              false;
+
+            task.assignedWorker =
+              null;
+
+            task.retryCount =
+              nextRetryCount;
+
+            task.failureReason =
+              "Worker disconnected — task scheduled for recovery";
+
+            await task.save();
+
+            retryTracked();
 
             pushLog(
 
-              "WORKER_DISCONNECTED",
+              "TASK_RECOVERY_SCHEDULED",
 
-              `Worker ${workerId} disconnected`
+              `Recovering task ${task.jobId} after worker ${workerId} disconnected`,
+
+              {
+                jobId:
+                  task.jobId,
+
+                workerId,
+
+                retryCount:
+                  nextRetryCount,
+
+                maxRetries:
+                  task.maxRetries
+              }
             );
 
-            break;
+            io.emit(
+
+              "task-update",
+
+              {
+                jobId:
+                  task.jobId,
+
+                status:
+                  "pending",
+
+                retryCount:
+                  nextRetryCount
+              }
+            );
+
+            /*
+              Re-enter the existing BullMQ
+              scheduling pipeline.
+            */
+
+            await taskQueue.add(
+
+              "distributed-task",
+
+              {
+                job: {
+
+                  id:
+                    task.jobId,
+
+                  name:
+                    task.name,
+
+                  data: {
+
+                    ...task.data,
+
+                    retryCount:
+                      nextRetryCount
+                  }
+                },
+
+                priority:
+                  task.priority,
+
+                type:
+                  task.type
+              },
+
+              {
+                attempts: 1,
+
+                removeOnComplete:
+                  50,
+
+                removeOnFail:
+                  20
+              }
+            );
           }
+
+          /*
+            Remove disconnected worker only
+            after orphaned task locks have
+            been released.
+          */
+
+          await unregisterWorker(
+            workerId
+          );
+
+        }catch(err){
+
+          console.error(
+
+            `❌ Worker disconnect recovery error: ${err.message}`
+          );
+
+          pushLog(
+
+            "TASK_RECOVERY_ERROR",
+
+            `Failed to recover tasks from worker ${workerId}`,
+
+            {
+              workerId,
+
+              error:
+                err.message
+            }
+          );
+
+          /*
+            Worker must still be removed
+            even if task recovery fails.
+          */
+
+          await unregisterWorker(
+            workerId
+          );
         }
+
+        break;
       }
-    );
+    }
   }
 );
-
+  }
+);
 /* =========================
    FILE TYPE DETECTOR
 ========================= */

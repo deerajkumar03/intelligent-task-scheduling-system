@@ -1057,6 +1057,49 @@ function getMetrics(){
     workers
   };
 }
+
+/* =========================
+   RELEASE ORPHANED JOB
+========================= */
+
+async function releaseOrphanedJob(
+  workerId,
+  jobId
+){
+
+  if(jobId){
+
+    assignedJobs.delete(
+      jobId
+    );
+  }
+
+  const worker =
+    workers[workerId];
+
+  if(worker){
+
+    worker.load =
+      Math.max(
+        0,
+        worker.load - 1
+      );
+
+    await syncWorkerState(
+      workerId
+    );
+  }
+
+  metrics.processingQueue =
+    Math.max(
+      0,
+      metrics.processingQueue - 1
+    );
+
+  console.log(
+    `♻ Released orphaned task ${jobId} from worker ${workerId}`
+  );
+}
 async function unregisterWorker(
   workerId
 ){
@@ -1103,6 +1146,8 @@ module.exports = {
   jobFailed,
 
   retryTracked,
+
+  releaseOrphanedJob,
 
   getMetrics
 };
