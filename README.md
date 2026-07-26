@@ -1,9 +1,35 @@
 # Intelligent Task Scheduling System with Real-Time Monitoring
 
+ A distributed orchestration platform for intelligent workload scheduling, real-time monitoring, and specialized worker coordination.
+
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?logo=mongodb&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-Queue-DC382D?logo=redis&logoColor=white)
+![BullMQ](https://img.shields.io/badge/BullMQ-Task%20Queue-orange)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-Real--Time-black?logo=socketdotio)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
 A distributed task orchestration system designed to intelligently schedule heterogeneous workloads across specialized workers while providing real-time visibility into task execution, worker health, queue activity, resource utilization, and scheduling decisions.
 
 The system uses a metric-based scheduling approach to select suitable workers based on specialization, current load, health status, execution latency, and task priority. It also supports parallel workload processing, failure recovery, retry mechanisms, dynamic worker scaling, and real-time telemetry.
 
+---
+## Table of Contents
+
+- Overview
+- Dashboard Preview
+- Key Features
+- Monitoring Dashboard
+- System Architecture
+- Workload Execution Flow
+- Technology Stack
+- Project Structure
+- Installation
+- Running the System
+- Testing
+- Future Enhancements
+- Author
 ---
 
 ## Overview
@@ -163,6 +189,18 @@ Displays real-time scheduling and orchestration events.
 ### Execution Summary
 Provides execution-related metrics and task processing statistics.
 
+### Scheduler Decision Trace
+
+Displays every scheduling decision in real time including:
+
+- Selected Worker
+- Worker Type
+- Worker Load
+- Worker Latency
+- Assignment Time
+- Selection Reasons
+- Execution Status
+
 ---
 
 ## System Architecture
@@ -184,7 +222,18 @@ The system consists of the following main layers:
 
 The typical task execution process is:
 
-**Upload → Validation → Classification → Task Creation → Chunking (if required) → Priority Assignment → Scheduling → Worker Selection → Queue → Worker Execution → Completion → Cleanup → Dashboard Update**
+Upload
+→ Validation
+→ Workload Classification
+→ Task Creation
+→ Chunking
+→ Priority Assignment
+→ Intelligent Scheduler
+→ Worker Selection
+→ Queue
+→ Worker Execution
+→ Result Aggregation
+→ Dashboard Update
 
 If a worker execution attempt fails, the system applies the configured retry and reassignment mechanism before marking the task as permanently failed.
 
@@ -493,11 +542,17 @@ This project is an academic distributed task orchestration prototype developed t
 
 The project focuses on demonstrating the architecture and behavior of an observable, workload-aware distributed task processing system.
 
+Although developed as an MCA major project, the architecture follows modular distributed-system principles and can be extended for larger-scale orchestration platforms.
 ---
 
 ## Author
 
 **Deeraj Kumar**
 
-Master of Computer Applications (MCA)  
-Major Project
+Master of Computer Applications (MCA)
+
+GitHub:
+https://github.com/deerajkumar03
+
+LinkedIn:
+(https://www.linkedin.com/in/deerajkumar03/)
