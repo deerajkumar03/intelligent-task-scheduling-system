@@ -59,10 +59,21 @@ export const OrchestrationProvider = ({
   ] = useState(null);
 
   const [
+  executionSummary,
+  setExecutionSummary
+] = useState(null);
+  const [
     executionStatus,
     setExecutionStatus
   ] = useState("IDLE");
-
+const [
+  schedulingDecisions,
+  setSchedulingDecisions
+] = useState([]);
+const [
+  currentGroupId,
+  setCurrentGroupId
+] = useState(null);
   /* =========================
      FETCH INITIAL METRICS
   ========================= */
@@ -364,15 +375,100 @@ export const OrchestrationProvider = ({
             return;
           }
 
+    if(data.groupId){
+
+      setCurrentGroupId(
+        data.groupId
+      );
+
+    }
           setPipelineStage(
             "SCHEDULING"
           );
 
           setExecutionStatus(
-            "PROCESSING"
-          );
+  "PROCESSING"
+);
 
-          setActiveTasks(
+/*
+  Store the real scheduling decision
+  received from the backend.
+*/
+
+if(data.decision){
+
+  const decisionEntry = {
+
+  jobId:
+    data.jobId,
+
+  groupId:
+    data.groupId,
+
+  workerId:
+    data.workerId,
+    taskType:
+      data.taskType ||
+      data.decision.taskType ||
+      "UNKNOWN",
+
+    priority:
+      data.priority ||
+      "NORMAL",
+
+    workerType:
+      data.decision.workerType ||
+      "unknown",
+
+    load:
+      data.decision.load ??
+      0,
+
+    avgLatency:
+      data.decision.avgLatency ??
+      0,
+
+    priorityBoost:
+      data.decision.priorityBoost ??
+      0,
+
+    selectedBecause:
+      data.decision.selectedBecause ||
+      [],
+
+    assignedAt:
+      new Date()
+        .toISOString(),
+
+    status:
+      "ASSIGNED"
+  };
+
+  setSchedulingDecisions(
+    (prev) => {
+
+      const withoutDuplicate =
+        prev.filter(
+          (item) =>
+            item.jobId !==
+            data.jobId
+        );
+
+      return [
+
+        decisionEntry,
+
+        ...withoutDuplicate
+
+      ].slice(
+        0,
+        50
+      );
+    }
+  );
+}
+
+setActiveTasks(
             (prev) => {
 
               const exists =
@@ -514,7 +610,24 @@ export const OrchestrationProvider = ({
           ){
             return;
           }
-
+setSchedulingDecisions(
+  (prev) =>
+    prev.map(
+      (decision) =>
+        decision.jobId === data.jobId
+          ? {
+              ...decision,
+              status: "RETRYING",
+              retryCount:
+                data.retryCount ||
+                (
+                  decision.retryCount ||
+                  0
+                ) + 1
+            }
+          : decision
+    )
+);
           setPipelineStage(
             "QUEUE"
           );
@@ -571,7 +684,20 @@ export const OrchestrationProvider = ({
           ){
             return;
           }
-
+setSchedulingDecisions(
+  (prev) =>
+    prev.map(
+      (decision) =>
+        decision.jobId === data.jobId
+          ? {
+              ...decision,
+              status: "COMPLETED",
+              completedAt:
+                new Date().toISOString()
+            }
+          : decision
+    )
+);
           setActiveTasks(
             (prev) =>
 
@@ -650,7 +776,21 @@ export const OrchestrationProvider = ({
           ){
             return;
           }
-
+setSchedulingDecisions(
+  (prev) =>
+    prev.map(
+      (decision) =>
+        decision.jobId === data.jobId
+          ? {
+              ...decision,
+              status: "FAILED",
+              error:
+                data.error ||
+                "Task failed"
+            }
+          : decision
+    )
+);
           /*
             Do not immediately set
             pipeline to IDLE.
@@ -693,15 +833,24 @@ export const OrchestrationProvider = ({
          FINAL RESULT
       ========================= */
 
-      const handleFinalResult =
-        (data) => {
+     const handleFinalResult =
+  (data) => {
 
-          setFinalResult(
+    setFinalResult(
+      data?.result ||
+      "Processing completed."
+    );
 
-            data?.result ||
+    setExecutionSummary(
+      data?.summary ||
+      null
+    );
 
-            "Processing completed."
-          );
+    if(data?.groupId){
+      setCurrentGroupId(
+        data.groupId
+      );
+    }
 
           /*
             Backend may provide
@@ -919,11 +1068,23 @@ export const OrchestrationProvider = ({
 
         finalResult,
 
-        setFinalResult,
+setFinalResult,
 
-        executionStatus,
+executionSummary,
 
-        setExecutionStatus
+setExecutionSummary,
+
+       executionStatus,
+
+setExecutionStatus,
+
+schedulingDecisions,
+
+setSchedulingDecisions,
+
+currentGroupId,
+
+setCurrentGroupId
 
       }}
     >

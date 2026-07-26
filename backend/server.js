@@ -669,20 +669,133 @@ Completed At:
 ${new Date().toLocaleTimeString()}
 
 `;
+const retries =
+  chunks.reduce(
+    (sum, chunk) =>
+      sum + (chunk.retryCount || 0),
+    0
+  );
 
-              io.emit(
+const workersUsed =
+  [
+    ...new Set(
+      chunks
+        .map(
+          (chunk) =>
+            chunk.assignedWorker
+        )
+        .filter(Boolean)
+    )
+  ];
 
-                "final-result",
+const startedTimes =
+  chunks
+    .map(
+      (chunk) =>
+        chunk.startedAt
+          ? new Date(
+              chunk.startedAt
+            ).getTime()
+          : null
+    )
+    .filter(Boolean);
 
-                {
+const completedTimes =
+  chunks
+    .map(
+      (chunk) =>
+        chunk.completedAt
+          ? new Date(
+              chunk.completedAt
+            ).getTime()
+          : null
+    )
+    .filter(Boolean);
 
-                  groupId:
-                    task.groupId,
+const workloadStartedAt =
+  startedTimes.length
+    ? Math.min(
+        ...startedTimes
+      )
+    : null;
 
-                  result:
-                    final
-                }
-              );
+const workloadCompletedAt =
+  completedTimes.length
+    ? Math.max(
+        ...completedTimes
+      )
+    : Date.now();
+
+const executionTimeMs =
+  workloadStartedAt
+    ? workloadCompletedAt -
+      workloadStartedAt
+    : 0;
+
+
+io.emit(
+  "final-result",
+  {
+    groupId:
+      task.groupId,
+
+    status:
+      failedChunks === 0
+        ? "SUCCESS"
+        : "PARTIAL SUCCESS",
+
+    result:
+      final,
+
+    summary: {
+
+      fileName:
+        chunks[0]?.data?.fileName ||
+        task.data.fileName ||
+        "Unknown",
+
+      taskType:
+        task.data.taskType,
+
+      priority:
+        task.priority,
+
+      totalChunks:
+        total,
+
+      completedChunks:
+        completed,
+
+      failedChunks,
+
+      retries,
+
+      workersUsed,
+
+      workersUsedCount:
+        workersUsed.length,
+
+      executionMode:
+        total > 1
+          ? "Parallel / Distributed"
+          : "Distributed",
+
+      executionTimeMs,
+
+      startedAt:
+        workloadStartedAt
+          ? new Date(
+              workloadStartedAt
+            ).toISOString()
+          : null,
+
+      completedAt:
+        new Date(
+          workloadCompletedAt
+        ).toISOString()
+    }
+  }
+);
               await cleanupWorkloadFiles(
   chunks
 );
@@ -862,13 +975,16 @@ if(
   );
 
   task.status =
-    "failed";
+  "failed";
 
-  task.assigned =
-    false;
+task.assigned =
+  false;
 
-  task.failureReason =
-    failureReason;
+task.failureReason =
+  failureReason;
+
+task.completedAt =
+  new Date();
 
   await task.save();
 
@@ -1054,23 +1170,127 @@ ${new Date().toLocaleTimeString()}
 
 `;
 
-      io.emit(
+ const retries =
+  groupTasks.reduce(
+    (sum, groupTask) =>
+      sum + (groupTask.retryCount || 0),
+    0
+  );
 
-        "final-result",
+const workersUsed =
+  [
+    ...new Set(
+      groupTasks
+        .map(
+          (groupTask) =>
+            groupTask.assignedWorker
+        )
+        .filter(Boolean)
+    )
+  ];
 
-        {
+const startedTimes =
+  groupTasks
+    .map(
+      (groupTask) =>
+        groupTask.startedAt
+          ? new Date(
+              groupTask.startedAt
+            ).getTime()
+          : null
+    )
+    .filter(Boolean);
 
-          groupId:
-            task.groupId,
+const completedTimes =
+  groupTasks
+    .map(
+      (groupTask) =>
+        groupTask.completedAt
+          ? new Date(
+              groupTask.completedAt
+            ).getTime()
+          : null
+    )
+    .filter(Boolean);
 
-          status:
-            finalStatus,
+const workloadStartedAt =
+  startedTimes.length
+    ? Math.min(...startedTimes)
+    : null;
 
-          result:
-            final
-        }
-      );
+const workloadCompletedAt =
+  completedTimes.length
+    ? Math.max(...completedTimes)
+    : Date.now();
 
+const executionTimeMs =
+  workloadStartedAt
+    ? workloadCompletedAt -
+      workloadStartedAt
+    : 0;
+
+io.emit(
+  "final-result",
+  {
+    groupId:
+      task.groupId,
+
+    status:
+      finalStatus,
+
+    result:
+      final,
+
+    summary: {
+
+      fileName:
+        groupTasks[0]?.data?.fileName ||
+        task.data.fileName ||
+        "Unknown",
+
+      taskType:
+        task.data.taskType,
+
+      priority:
+        task.priority,
+
+      totalChunks:
+        total,
+
+      completedChunks:
+        completed,
+
+      failedChunks:
+        failed,
+
+      retries,
+
+      workersUsed,
+
+      workersUsedCount:
+        workersUsed.length,
+
+      executionMode:
+        total > 1
+          ? "Parallel / Distributed"
+          : "Distributed",
+
+      executionTimeMs,
+
+      startedAt:
+        workloadStartedAt
+          ? new Date(
+              workloadStartedAt
+            ).toISOString()
+          : null,
+
+      completedAt:
+        new Date(
+          workloadCompletedAt
+        ).toISOString()
+    }
+  }
+);
      await cleanupWorkloadFiles(
   groupTasks
 );
@@ -2122,8 +2342,9 @@ if(
                 task.name,
 
  data: {
-
   ...task.data,
+
+  groupId,
 
   retryCount:
     0
@@ -2276,7 +2497,7 @@ const schedulerWorker =
       const jobData =
         job.data;
 
-      const worker =
+      const assignment =
   await assignJob({
 
     ...jobData.job,
@@ -2285,36 +2506,54 @@ const schedulerWorker =
       jobData.priority
   });
 
-      if(!worker){
+if(!assignment){
 
-        throw new Error(
-          "No worker available"
-        );
-      }
+  throw new Error(
+    "No worker available"
+  );
+}
 
-      io.to(
-        worker.socketId
-      ).emit(
+const {
+  worker,
+  decisionTelemetry
+} = assignment;
 
-        "task",
+io.to(
+  worker.socketId
+).emit(
 
-        jobData.job
-      );
+  "task",
 
-      io.emit(
+  jobData.job
+);
 
-        "task-assigned",
+io.emit(
 
-        {
+  "task-assigned",
 
-          jobId:
-            jobData.job.id,
+  {
 
-          workerId:
-            worker.id
-        }
-      );
+    jobId:
+      jobData.job.id,
+    
+    groupId:
+  jobData.job.data?.groupId,
 
+    workerId:
+      worker.id,
+
+    taskType:
+      jobData.job.data?.taskType ||
+      "text",
+
+    priority:
+      jobData.priority ||
+      "normal",
+
+    decision:
+      decisionTelemetry
+  }
+);
     
     },
 

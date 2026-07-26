@@ -1,0 +1,14 @@
+.layout {
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: 30px;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+  }
+}

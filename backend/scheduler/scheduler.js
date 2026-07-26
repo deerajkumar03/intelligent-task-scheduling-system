@@ -712,8 +712,10 @@ async function assignJob(
     worker.id
   );
 
-  return worker;
-}
+return {
+  worker,
+  decisionTelemetry
+};}
 
 /* =========================
    JOB COMPLETED

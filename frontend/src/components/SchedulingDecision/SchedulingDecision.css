@@ -1,0 +1,258 @@
+/* =========================================================
+   SchedulingDecision — Execution Trace Table
+   ========================================================= */
+
+.scheduling-decision-panel {
+  min-height: 340px;
+}
+
+.scheduling-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.scheduling-heading h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.scheduling-subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.scheduling-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.scheduling-summary {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.scheduling-summary strong {
+  color: var(--text-primary);
+  font-weight: 700;
+  margin-right: 5px;
+}
+
+.scheduling-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-green);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.scheduling-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  animation: pulse-dot 2s ease infinite;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.scheduling-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 22px;
+  border: 1.5px dashed rgba(107, 114, 128, 0.3);
+  border-radius: var(--radius-lg);
+  background: rgba(17, 24, 39, 0.5);
+}
+
+.scheduling-empty-icon {
+  font-size: 24px;
+  opacity: 0.7;
+}
+
+.scheduling-empty strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  font-weight: 700;
+}
+
+.scheduling-empty p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.scheduling-table-wrapper {
+  overflow: auto;
+  max-height: 440px;
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(17, 24, 39, 0.4);
+}
+
+.scheduling-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.scheduling-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+.scheduling-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+  white-space: nowrap;
+}
+
+.scheduling-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(75, 85, 99, 0.2);
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+
+.scheduling-table tbody tr {
+  transition: background var(--transition);
+}
+
+.scheduling-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.decision-task strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.decision-task span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.decision-worker-id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.worker-type-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.worker-type-badge.io {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.decision-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.decision-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.decision-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.decision-check {
+  color: var(--accent-green);
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.decision-time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.decision-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.decision-status.assigned {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.decision-status.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-green);
+}
+
+.decision-status.failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.decision-status.retrying {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
