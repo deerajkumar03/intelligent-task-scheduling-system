@@ -1383,11 +1383,6 @@ socket.on(
 
         try{
 
-          /*
-            Find tasks that were being processed
-            by the disconnected worker.
-          */
-
           const staleTasks =
             await Task.find({
 
@@ -1402,12 +1397,6 @@ socket.on(
             const task of staleTasks
           ){
 
-            /*
-              Release scheduler assignment lock
-              before putting the task back
-              into BullMQ.
-            */
-
             await releaseOrphanedJob(
 
               workerId,
@@ -1418,11 +1407,6 @@ socket.on(
             const nextRetryCount =
 
               (task.retryCount || 0) + 1;
-
-            /*
-              Stop retrying when the task
-              has exhausted max retries.
-            */
 
             if(
               nextRetryCount >
@@ -1482,11 +1466,6 @@ socket.on(
               continue;
             }
 
-            /*
-              Reset orphaned task so another
-              healthy worker can process it.
-            */
-
             task.status =
               "pending";
 
@@ -1542,11 +1521,6 @@ socket.on(
               }
             );
 
-            /*
-              Re-enter the existing BullMQ
-              scheduling pipeline.
-            */
-
             await taskQueue.add(
 
               "distributed-task",
@@ -1588,12 +1562,6 @@ socket.on(
             );
           }
 
-          /*
-            Remove disconnected worker only
-            after orphaned task locks have
-            been released.
-          */
-
           await unregisterWorker(
             workerId
           );
@@ -1619,11 +1587,6 @@ socket.on(
             }
           );
 
-          /*
-            Worker must still be removed
-            even if task recovery fails.
-          */
-
           await unregisterWorker(
             workerId
           );
@@ -1636,6 +1599,7 @@ socket.on(
 );
   }
 );
+
 /* =========================
    FILE TYPE DETECTOR
 ========================= */
@@ -1667,6 +1631,7 @@ function detectTaskType(
 
     return "video";
   }
+
 if(
 
   mime ===
@@ -1680,6 +1645,7 @@ if(
 
   return "text";
 }
+
   if(
 
     mime === "application/pdf"
@@ -1695,6 +1661,7 @@ return "generic";
 /* =========================
    SPLIT FILE INTO DISK CHUNKS
 ========================= */
+
 async function splitFileIntoChunks(
 
   file,
@@ -1815,9 +1782,11 @@ async function splitFileIntoChunks(
 
   return chunks;
 }
+
 /* =========================
    TASK GENERATOR
 ========================= */
+
 async function generateTasks(
 
   file,
@@ -1825,20 +1794,13 @@ async function generateTasks(
   userPriority = null
 
 ){
+
   const taskType =
     detectTaskType(
       file
     );
 
   const tasks = [];
-
-  /*
-    Small image and PDF workloads
-    remain single-task workloads.
-
-    Large/text/audio/video workloads
-    are split into real disk chunks.
-  */
 
   let totalChunks = 1;
 
@@ -2012,10 +1974,10 @@ async function generateTasks(
   };
 }
 
-
 /* =========================
    MULTER
 ========================= */
+
 const allowedMimeTypes =
   new Set([
 
@@ -2035,6 +1997,7 @@ const allowedMimeTypes =
     "video/webm",
     "video/quicktime"
   ]);
+
 const diskStorage =
   multer.diskStorage({
 
@@ -2083,6 +2046,7 @@ const upload =
         1024 *
         500
     },
+
     fileFilter: (
 
       req,
@@ -2183,9 +2147,6 @@ app.get(
           "pending"
       });
 
-  
-
-   
   const schedulerMetrics =
   getMetrics();
 
@@ -2257,6 +2218,7 @@ app.post(
 
   req.body.priority
 );
+
 if(
   tasks.length >=
   DYNAMIC_WORKER_QUEUE_THRESHOLD
@@ -2387,11 +2349,6 @@ if(
     `❌ Upload processing failed: ${err.message}`
   );
 
-  /*
-    Remove original uploaded file
-    if upload processing fails.
-  */
-
   if(
     req.file?.path
   ){
@@ -2415,11 +2372,6 @@ if(
       }
     }
   }
-
-  /*
-    Remove partially created chunks
-    belonging to this workload.
-  */
 
   if(
     typeof groupId !==
@@ -2558,9 +2510,12 @@ io.emit(
     },
 
     {
-      connection
+      connection,
+      drainDelay: 120,       // Pause worker polling when queue is empty
+      stalledInterval: 300000 // Check stalled jobs every 5 mins
     }
   );
+
 async function emitMetrics(){
 
   const schedulerMetrics =
@@ -2584,7 +2539,6 @@ async function emitMetrics(){
 
     "metrics-update",
 
-
 {
 
   ...schedulerMetrics,
@@ -2605,7 +2559,9 @@ async function emitMetrics(){
     totalCompletedJobs
 }
   );
-}metricsInterval =
+}
+
+metricsInterval =
   setInterval(
 
     () => {
@@ -2615,7 +2571,7 @@ async function emitMetrics(){
 
     },
 
-    1000
+    10000 // Changed from 1000ms to 10000ms (10 seconds)
   );
 
 /* =========================
@@ -2716,8 +2672,9 @@ dynamicScalingInterval =
 
     },
 
-    5000
+    30000 // Changed from 5000ms to 30000ms (30 seconds)
   );
+
 /* =========================
    QUEUE EVENTS
 ========================= */
@@ -2882,11 +2839,6 @@ app.use(
             err.message
         });
     }
-/*
-  Remove partially created
-  MongoDB task records
-*/
-
 
     res
       .status(500)
@@ -2906,6 +2858,7 @@ app.use(
 /* =========================
    START SERVER
 ========================= */
+
 const PORT =
   Number(
     process.env.PORT ||

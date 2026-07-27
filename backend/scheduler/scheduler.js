@@ -220,9 +220,8 @@ async function heartbeat(
         }
       );
 
-    await syncWorkerState(
-      workerId
-    );
+    // REMOVED: await syncWorkerState(workerId);
+    // State is maintained in memory. Removing this prevents writing HSET to Redis every 2s.
   }
 }
 
@@ -1129,6 +1128,7 @@ async function unregisterWorker(
     );
   }
 }
+
 /* =========================
    EXPORTS
 ========================= */

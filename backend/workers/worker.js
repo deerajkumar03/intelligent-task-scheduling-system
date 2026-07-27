@@ -247,15 +247,6 @@ function shouldFail(job){
     const mode =
       process.env.FAILURE_TEST_MODE;
 
-    /*
-      retry-success:
-      Initial attempt fails.
-      Retried attempt succeeds.
-
-      Server increments retryCount
-      before reassigning the task.
-    */
-
     if(
       mode ===
       "retry-success"
@@ -269,12 +260,6 @@ function shouldFail(job){
 
       return retryCount === 0;
     }
-
-    /*
-      permanent-failure:
-      Every attempt fails until
-      server reaches max retries.
-    */
 
     if(
       mode ===
@@ -802,7 +787,7 @@ mongoose
 
     },
 
-    2000
+    15000 // Slowed down from 2000ms to 15000ms to conserve commands
   );
     /* =========================
        TASK LISTENER
@@ -827,6 +812,7 @@ mongoose
       err.message
     );
   });
+
 /* =========================
    GRACEFUL SHUTDOWN
 ========================= */
