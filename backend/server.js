@@ -2263,87 +2263,93 @@ if(
         const task of tasks
       ){
 
-        await Task.create({
+       try {
 
-          jobId:
-            task.id,
+  await Task.create({
+
+    jobId: task.id,
+    groupId,
+    name: task.name,
+    type: task.type,
+    priority: task.priority,
+    taskType: task.taskType,
+    data: task.data,
+    status: "pending"
+
+  });
+
+  await taskQueue.add(
+
+    "distributed-task",
+
+    {
+
+      job: {
+
+        id: task.id,
+
+        name: task.name,
+
+        data: {
+
+          ...task.data,
 
           groupId,
 
-          name:
-            task.name,
+          retryCount: 0
 
-          type:
-            task.type,
+        }
 
-          priority:
-            task.priority,
+      },
 
-          taskType:
-  task.taskType,
+      priority: task.priority,
 
-          data:
-            task.data,
+      type: task.type
 
-          status:
-            "pending"
-        });
+    },
 
-        await taskQueue.add(
+    {
 
-          "distributed-task",
+      attempts: 1,
 
-          {
+      removeOnComplete: 50,
 
-            job: {
+      removeOnFail: 20
 
-              id:
-                task.id,
+    }
 
-              name:
-                task.name,
+  );
 
- data: {
-  ...task.data,
+} catch (err) {
 
-  groupId,
+  console.error(`❌ Queue Add Failed: ${err.message}`);
 
-  retryCount:
-    0
+  await Task.deleteOne({
+
+    jobId: task.id
+
+  });
+
+  throw err;
+
 }
-},
-            priority:
-              task.priority,
 
-            type:
-              task.type
-          },
+  }    
+res.json({
 
-         {
-
-  attempts: 1,
-
-  removeOnComplete: 50,
-
-  removeOnFail: 20
-}
-        );
-      }
-
-      res.json({
-
-        success:
+     success:
           true,
 
-        groupId,
+     groupId,
 
-        taskType,
+    taskType,
 
-        totalTasks:
+    totalTasks:
           tasks.length
-      });
+  });
 
-    }catch(err){
+  }catch(err)
+  {
 
   console.error(
     `❌ Upload processing failed: ${err.message}`
