@@ -5,17 +5,13 @@ require("dotenv").config();
 const connection = new Redis({
   host: process.env.REDIS_HOST || "127.0.0.1",
 
-  port: Number(
-    process.env.REDIS_PORT || 6379
-  ),
+  port: Number(process.env.REDIS_PORT || 6379),
+
+  username:
+    process.env.REDIS_USERNAME || "default",
 
   password:
     process.env.REDIS_PASSWORD || undefined,
-
-  tls:
-    process.env.REDIS_TLS === "true"
-      ? {}
-      : undefined,
 
   maxRetriesPerRequest: null,
 
@@ -30,11 +26,12 @@ connection.on("connect", () => {
   console.log("✅ Redis connected");
 });
 
+connection.on("ready", () => {
+  console.log("🚀 Redis is ready");
+});
+
 connection.on("error", (err) => {
-  console.log(
-    "❌ Redis Error:",
-    err.message
-  );
+  console.log("❌ Redis Error:", err.message);
 });
 
 connection.on("reconnecting", () => {
