@@ -698,7 +698,7 @@ socket.emit(
   {
     jobId: job.id,
     workerId,
-    workerType,
+    workerType: WORKER_TYPE,
     status: "completed",
 
     responseTime:
@@ -715,7 +715,6 @@ socket.emit(
     result
   }
 );
-
     console.log(
 
       `✅ ${workerId} completed ${job.id}`
