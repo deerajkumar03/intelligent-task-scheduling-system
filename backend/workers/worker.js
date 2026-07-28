@@ -296,54 +296,42 @@ function shouldFail(job){
 /* =========================
    TASK DELAY
 ========================= */
+/* =========================
+   CONTROLLED PROCESSING DELAY
+========================= */
 
-async function simulateDelay(
-  taskType
-){
+async function simulateDelay(taskType) {
 
-  let delay = 700;
+  /*
+   * Small controlled workload simulation.
+   *
+   * Purpose:
+   * - Keep worker execution visible in the dashboard.
+   * - Allow parallel worker activity to be observed.
+   * - Avoid unnecessarily slowing deployed workloads.
+   *
+   * Can be disabled completely with:
+   * ENABLE_PROCESSING_DELAY=false
+   */
 
-  switch(taskType){
-
-    case "video":
-
-      delay = 3000;
-      break;
-
-    case "audio":
-
-      delay = 1800;
-      break;
-
-    case "image":
-
-      delay = 1200;
-      break;
-
-    case "pdf":
-
-      delay = 1000;
-      break;
-
-    case "text":
-
-      delay = 500;
-      break;
-
-    default:
-
-      delay = 700;
+  if (process.env.ENABLE_PROCESSING_DELAY === "true") {
+    return;
   }
 
-  await new Promise(
+  const delays = {
+    video: 1000,
+    audio: 800,
+    image: 600,
+    pdf: 600,
+    text: 400,
+    generic: 500
+  };
 
-    (resolve) =>
+  const delay = delays[taskType] ?? 500;
 
-      setTimeout(
-        resolve,
-        delay
-      )
-  );
+  await new Promise((resolve) => {
+    setTimeout(resolve, delay);
+  });
 }
 
 /* =========================
@@ -697,25 +685,36 @@ Completed
           result
         }
       );
-    socket.emit(
+    const completedAt = Date.now();
 
-      "task-update",
+const executionTimeMs =
+  Math.max(
+    0,
+    completedAt - start
+  );
 
-      {
+socket.emit(
+  "task-update",
+  {
+    jobId: job.id,
+    workerId,
+    workerType,
+    status: "completed",
 
-        jobId:
-          job.id,
+    responseTime:
+      executionTimeMs,
 
-        workerId,
+    executionTimeMs,
 
-        status:
-          "completed",
+    startedAt:
+      new Date(start).toISOString(),
 
-        responseTime,
+    completedAt:
+      new Date(completedAt).toISOString(),
 
-        result
-      }
-    );
+    result
+  }
+);
 
     console.log(
 

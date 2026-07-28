@@ -728,8 +728,54 @@ const workloadCompletedAt =
 
 const executionTimeMs =
   workloadStartedAt
-    ? workloadCompletedAt -
-      workloadStartedAt
+    ? workloadCompletedAt - workloadStartedAt
+    : 0;
+
+/* =========================
+   WORKLOAD PERFORMANCE
+========================= */
+
+const createdTimes = chunks
+  .map((t) =>
+    t.createdAt
+      ? new Date(t.createdAt).getTime()
+      : null
+  )
+  .filter(Boolean);
+
+const workloadCreatedAt =
+  createdTimes.length
+    ? Math.min(...createdTimes)
+    : null;
+
+const queueWaitTimeMs =
+  workloadCreatedAt && workloadStartedAt
+    ? Math.max(
+        0,
+        workloadStartedAt - workloadCreatedAt
+      )
+    : 0;
+
+const totalTurnaroundTimeMs =
+  workloadCreatedAt
+    ? Math.max(
+        0,
+        workloadCompletedAt - workloadCreatedAt
+      )
+    : executionTimeMs;
+
+const averageChunkTimeMs =
+  chunks.length
+    ? Math.round(
+        chunks.reduce(
+          (sum, currentTask) =>
+            sum +
+            Number(
+              currentTask.responseTime || 0
+            ),
+          0
+        ) / chunks.length
+      )
     : 0;
 
 
@@ -782,17 +828,23 @@ io.emit(
 
       executionTimeMs,
 
-      startedAt:
-        workloadStartedAt
-          ? new Date(
-              workloadStartedAt
-            ).toISOString()
-          : null,
+queueWaitTimeMs,
 
-      completedAt:
-        new Date(
-          workloadCompletedAt
-        ).toISOString()
+totalTurnaroundTimeMs,
+
+averageChunkTimeMs,
+
+startedAt:
+  workloadStartedAt
+    ? new Date(
+        workloadStartedAt
+      ).toISOString()
+    : null,
+
+completedAt:
+  new Date(
+    workloadCompletedAt
+  ).toISOString()
     }
   }
 );
@@ -2259,82 +2311,90 @@ if(
         }
       );
 
-      for(
-        const task of tasks
-      ){
+      /* =========================
+   PERSIST + ENQUEUE TASKS
+========================= */
 
-       try {
+const enqueueTask = async (task) => {
 
-  await Task.create({
+  let taskCreated = false;
 
-    jobId: task.id,
-    groupId,
-    name: task.name,
-    type: task.type,
-    priority: task.priority,
-    taskType: task.taskType,
-    data: task.data,
-    status: "pending"
+  try {
 
-  });
-
-  await taskQueue.add(
-
-    "distributed-task",
-
-    {
-
-      job: {
-
-        id: task.id,
-
-        name: task.name,
-
-        data: {
-
-          ...task.data,
-
-          groupId,
-
-          retryCount: 0
-
-        }
-
-      },
-
+    await Task.create({
+      jobId: task.id,
+      groupId,
+      name: task.name,
+      type: task.type,
       priority: task.priority,
+      taskType: task.taskType,
+      data: task.data,
+      status: "pending"
+    });
 
-      type: task.type
+    taskCreated = true;
 
-    },
+    await taskQueue.add(
+      "distributed-task",
+      {
+        job: {
+          id: task.id,
+          name: task.name,
+          data: {
+            ...task.data,
+            groupId,
+            retryCount: 0
+          }
+        },
 
-    {
+        priority: task.priority,
+        type: task.type
+      },
+      {
+        attempts: 1,
+        removeOnComplete: 50,
+        removeOnFail: 20
+      }
+    );
 
-      attempts: 1,
+  } catch (err) {
 
-      removeOnComplete: 50,
+    console.error(
+      `❌ Task enqueue failed: ${task.id} | ${err.message}`
+    );
 
-      removeOnFail: 20
+    if (taskCreated) {
 
+      try {
+
+        await Task.deleteOne({
+          jobId: task.id
+        });
+
+      } catch (rollbackError) {
+
+        console.error(
+          `❌ Task rollback failed: ${task.id} | ${rollbackError.message}`
+        );
+
+      }
     }
 
-  );
+    throw err;
+  }
+};
 
-} catch (err) {
+/*
+ * Tasks/chunks are independent.
+ * Persist and enqueue them concurrently instead
+ * of waiting for every network operation sequentially.
+ */
 
-  console.error(`❌ Queue Add Failed: ${err.message}`);
-
-  await Task.deleteOne({
-
-    jobId: task.id
-
-  });
-
-  throw err;
-
-}
-
-  }    
+await Promise.all(
+  tasks.map((task) =>
+    enqueueTask(task)
+  )
+); 
 res.json({
 
      success:
