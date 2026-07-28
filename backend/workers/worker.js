@@ -750,10 +750,9 @@ socket.emit(
       }
     );
 
-    console.log(
-
-      `❌ ${workerId} failed ${job.id}`
-    );
+   console.error(
+  `❌ Worker ${workerId} failed ${job.id}: ${err.message}`
+);
   }
 }
 
