@@ -382,13 +382,27 @@ const [
       );
 
     }
-          setPipelineStage(
-            "SCHEDULING"
-          );
-
-          setExecutionStatus(
-  "PROCESSING"
+        setPipelineStage((currentStage) =>
+  currentStage === "COMPLETED"
+    ? "COMPLETED"
+    : "SCHEDULING"
 );
+
+setExecutionStatus((currentStatus) => {
+  const normalizedStatus =
+    currentStatus
+      ?.toString()
+      .toUpperCase();
+
+  if (
+    normalizedStatus === "SUCCESS" ||
+    normalizedStatus === "COMPLETED"
+  ) {
+    return currentStatus;
+  }
+
+  return "PROCESSING";
+});
 
 /*
   Store the real scheduling decision
@@ -557,13 +571,27 @@ setActiveTasks(
             return;
           }
 
-          setPipelineStage(
-            "PROCESSING"
-          );
+          setPipelineStage((currentStage) =>
+  currentStage === "COMPLETED"
+    ? "COMPLETED"
+    : "PROCESSING"
+);
 
-          setExecutionStatus(
-            "PROCESSING"
-          );
+setExecutionStatus((currentStatus) => {
+  const normalizedStatus =
+    currentStatus
+      ?.toString()
+      .toUpperCase();
+
+  if (
+    normalizedStatus === "COMPLETED" ||
+    normalizedStatus === "SUCCESS"
+  ) {
+    return currentStatus;
+  }
+
+  return "PROCESSING";
+});
 
           setActiveTasks(
             (prev) =>
@@ -835,7 +863,7 @@ setSchedulingDecisions(
 
      const handleFinalResult =
   (data) => {
-
+   
     setFinalResult(
       data?.result ||
       "Processing completed."
